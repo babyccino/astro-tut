@@ -1,0 +1,65 @@
+---
+import type { GetStaticPaths, Page } from "astro";
+import { Image } from "astro:assets";
+
+import Layout from "../../layouts/Layout.astro";
+import { ArchivePost } from "../../types/substack";
+
+export const getStaticPaths: GetStaticPaths = async ({ paginate }) => {
+  async function getPosts(
+    offset: number = 0,
+    totalPosts: ArchivePost[] = []
+  ): Promise<ArchivePost[]> {
+    const substackUrl = import.meta.env.SUBSTACK_URL;
+    const data = await fetch(
+      `${substackUrl}api/v1/archive?sort=new&offset=${offset}&limit=50`
+    );
+    const newPosts = (await data.json()) as ArchivePost[];
+    const newTotalPosts = totalPosts.concat(newPosts);
+    if (newPosts.length !== 50) return newTotalPosts;
+    return getPosts(offset + 50, newTotalPosts);
+  }
+  const posts = await getPosts();
+
+  return paginate(posts, { pageSize: 10 });
+};
+
+const page = Astro.props.page as Page<ArchivePost>;
+---
+
+<Layout title="You | Blog">
+  <main>
+    <div>
+      <div>
+        {page.url.prev && <a href={page.url.prev}>prev</a>}
+        {page.url.prev && page.url.next && <span>|</span>}
+        {page.url.next && <a href={page.url.next}>next</a>}
+      </div>
+    </div>
+    <ul>
+      {
+        page.data.map((post) => (
+          <li>
+            <a href={`/blog/posts/${post.slug}`}>
+              {post.cover_image && (
+                <Image
+                  src={post.cover_image}
+                  alt={post.title + " image"}
+                  width="50"
+                  height="50"
+                />
+              )}
+              <h3>{post.title}</h3>
+              <div>{post.description}</div>
+              <ul>
+                {post.postTags.map((tag) => (
+                  <li>{tag.name}</li>
+                ))}
+              </ul>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </main>
+</Layout>
